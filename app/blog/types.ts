@@ -15,6 +15,7 @@ export interface Author {
     twitter?: string
     linkedin?: string
     website?: string
+    jwseo?:string
   }
 }
 
