@@ -1,6 +1,8 @@
 import { notFound } from 'next/navigation'
 import { CustomMDX } from 'app/components/mdx'
+import { AuthorProfile } from 'app/components/author-profile'
 import { formatDate, getBlogPosts } from 'app/blog/utils'
+import { getAuthorsByIds, DEFAULT_AUTHOR } from 'app/data/authors'
 import { baseUrl } from 'app/sitemap'
 
 export async function generateStaticParams() {
@@ -11,8 +13,9 @@ export async function generateStaticParams() {
   }))
 }
 
-export function generateMetadata({ params }) {
-  let post = getBlogPosts().find((post) => post.slug === params.slug)
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params
+  let post = getBlogPosts().find((post) => post.slug === slug)
   if (!post) {
     return
   }
@@ -51,12 +54,30 @@ export function generateMetadata({ params }) {
   }
 }
 
-export default function Blog({ params }) {
-  let post = getBlogPosts().find((post) => post.slug === params.slug)
+export default async function Blog({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params
+  let post = getBlogPosts().find((post) => post.slug === slug)
 
   if (!post) {
     notFound()
   }
+
+  // 작성자 정보 조회
+  const authors = post.metadata.authors
+    ? getAuthorsByIds(post.metadata.authors)
+    : [DEFAULT_AUTHOR]
+
+  // 구조화된 데이터에 작성자 정보 추가 (다중 작성자 지원)
+  const structuredDataAuthors =
+    authors.length > 1
+      ? authors.map((author) => ({
+          '@type': 'Person',
+          name: author.name,
+        }))
+      : {
+          '@type': 'Person',
+          name: authors[0].name,
+        }
 
   return (
     <section>
@@ -75,10 +96,7 @@ export default function Blog({ params }) {
               ? `${baseUrl}${post.metadata.image}`
               : `/og?title=${encodeURIComponent(post.metadata.title)}`,
             url: `${baseUrl}/blog/${post.slug}`,
-            author: {
-              '@type': 'Person',
-              name: 'My Portfolio',
-            },
+            author: structuredDataAuthors,
           }),
         }}
       />
@@ -93,6 +111,9 @@ export default function Blog({ params }) {
       <article className="prose">
         <CustomMDX source={post.content} />
       </article>
+
+      {/* 작성자 프로필 추가 */}
+      <AuthorProfile authors={authors} />
     </section>
   )
 }
